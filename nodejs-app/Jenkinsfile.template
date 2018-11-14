@@ -114,8 +114,8 @@ stage('Build and Push Image') {
         submitterParameter "APPROVER"
       }
       steps {
-        echo "Continuing with deployment - approved by ${APPROVER}"
+        kubeDeploy(env.IMAGE_NAME, env.IMAGE_TAG)
       }
-    }   
+    }
   }
 }
