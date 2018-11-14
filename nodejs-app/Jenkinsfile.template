@@ -1,7 +1,6 @@
 library 'cd-accel'
 def testPodYaml = libraryResource 'podtemplates/nodejs-app/web-test-pod.yml'
 def loadTestPodYaml = libraryResource 'podtemplates/nodejs-app/load-test-pod.yml'
-  
 pipeline {
   agent none
   options { 
@@ -10,7 +9,7 @@ pipeline {
     preserveStashes(buildCount: 2)
   }
   stages {
-stage('Tests') {
+    stage('Tests') {
       parallel {
         stage('Web Tests') {
           agent {
@@ -19,19 +18,27 @@ stage('Tests') {
               yaml testPodYaml
             }
           }
-          steps {
-            checkout scm
-            container('nodejs') {
-              sh '''
-                npm install express
-                npm install pug --save
-                node ./hello.js &
-              '''
+          stages {
+            stage('Nodejs Setup') {
+              steps {
+                checkout scm
+                container('nodejs') {
+                  sh '''
+                    npm install express
+                    npm install pug --save
+                    node ./hello.js &
+                  '''
+                }
+              }   
             }
-            container('testcafe') {
-              sh '/opt/testcafe/docker/testcafe-docker.sh "chromium --no-sandbox" tests/*.js -r xunit:res.xml'
+            stage('Testcafe') {
+              steps {
+                container('testcafe') {
+                  sh '/opt/testcafe/docker/testcafe-docker.sh "chromium --no-sandbox" tests/*.js -r xunit:res.xml'
+                }
+              }   
             }
-          }
+          }  
           post {
             success {
               stash name: 'app', includes: '*.js, public/**, views/*, Dockerfile'
@@ -39,26 +46,34 @@ stage('Tests') {
             always {
               junit 'res.xml'
             }
-          }      
+          } 
         }
-        stage('Load Test') {  
+        stage('Load Test') {
           agent {
             kubernetes {
               label 'nodejs-ab'
               yaml loadTestPodYaml
             }
           }
-          steps {
-            checkout scm
-            container('nodejs') {
-              sh '''
-                npm install express
-                npm install pug --save
-                node ./hello.js &
-              '''
+          stages {
+            stage('Nodejs Setup') {
+              steps {
+                checkout scm
+                container('nodejs') {
+                  sh '''
+                    npm install express
+                    npm install pug --save
+                    node ./hello.js &
+                  '''
+                }
+              }   
             }
-            container('apache-benchmark') {
-              sh 'ab -n 10 -c 4 -s 5 http://localhost:8080/'
+            stage('Apache Benchmark') {  
+              steps {
+                container('apache-benchmark') {
+                  sh 'ab -n 10 -c 4 -s 5 http://localhost:8080/'
+                }
+              }
             }
           }
         }
@@ -95,27 +110,6 @@ stage('Tests') {
       steps {
         echo "Continuing with deployment - approved by ${APPROVER}"
       }
-    }
-stage('Load Test') {  
-      agent {
-        kubernetes {
-          label 'nodejs-ab'
-          yaml loadTestPodYaml
-        }
-      }
-      steps {
-        checkout scm
-        container('nodejs') {
-          sh '''
-            npm install express
-            npm install pug --save
-            node ./hello.js &
-          '''
-        }
-        container('apache-benchmark') {
-          sh 'ab -n 10 -c 4 -s 5 http://localhost:8080/'
-        }
-      }
-    }  
+    }   
   }
 }
