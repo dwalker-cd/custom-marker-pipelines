@@ -31,6 +31,11 @@ pipeline {
         timeout(time: 30, unit: 'SECONDS') 
       }
       input {
+        message "Should we deploy?"
+        submitter "dew"
+        submitterParameter "APPROVER"
+      }
+      input {
         message "Should we continue?"
       }
       steps {
